@@ -112,12 +112,20 @@ Gmail MCP only sees Jude's mailbox. For Evan's email activity, use HubSpot (step
 
 Read `evan-profile.md` → Commitment Tracker.
 
-Find the most recent ⏳ Pending commitment. The VAPI prompt needs to open by asking about it.
+**Find all ⏳ Pending commitments.** List them in the brief so John knows exactly what to ask about.
 
 ```
-Last week Evan committed to: [exact quote]
+Last week Evan committed to:
+  1. "[exact quote]" — ⏳ Pending
+  2. "[exact quote]" — ⏳ Pending
 John should open: "Hey, last week you said [commitment]. How'd that go?"
 ```
+
+**Calculate commitment track record** from ALL resolved commitments (✅ Done, 🔄 In Progress, ❌ Missed):
+```
+Commitment track record: [X] kept / [Y] total ([Z]%)
+```
+Include this in the brief's Week at a Glance section. John uses this to calibrate — if Evan keeps 90% of commitments, push harder. If he keeps 40%, the commitments are too ambitious or something else is going on.
 
 If no prior commitments (first session), skip this step.
 

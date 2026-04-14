@@ -267,46 +267,174 @@ Body:
 
 **This is a DRAFT only.** Do not send. Jude reviews and sends manually.
 
-## Step 8: Update evan-profile.md
+## Step 8: Update evan-profile.md (The Learning Loop)
 
-After reports are generated and saved, update the living profile. Append — never overwrite existing content.
+This is the most critical step. Every sub-step must execute — this is how John gets smarter each week. Read the current `evan-profile.md` before making any changes.
 
-**Updates to make:**
+### 8a. Resolve Prior Commitments
 
-1. **Update the YAML metrics block** with any new data points from this week:
-   ```yaml
-   as_of: "YYYY-MM-DD"
-   data_window: "week of [Monday] – [Sunday]"
-   # Update any metrics that changed — talk_ratio, followup_hrs, etc.
-   ```
+Before adding new commitments, find ALL `⏳ Pending` entries in the Commitment Tracker. For each one, search the transcript for whether Evan addressed it.
 
-2. **Add to Commitment Tracker:**
-   ```
-   | [Week start] | [Exact commitment from transcript] | ⏳ Pending | — |
-   ```
+**Update each pending commitment's status:**
+- `✅ Done` — Evan confirmed completion. Add evidence quote: `"Yeah, I got MSR out on Thursday."`
+- `🔄 In Progress` — Partial completion. Note what's done and what remains.
+- `❌ Missed` — No mention, or Evan acknowledged he didn't do it. Note briefly why if stated.
 
-3. **Add to SDT Progression Log** if there was observable movement.
+If the transcript doesn't mention a prior commitment at all, mark it `❌ Missed — not addressed in session`.
 
-4. **Append to Session Log:**
-   ```
-   ### Session [N] — Week of [Monday Date]
-   **Type:** Weekly coaching call  
-   **Duration:** [X] minutes  
-   **Transcript ID:** [Fireflies ID]  
-   **Pre-Session Brief:** pre-session-brief-[DATE].txt  
-   **Coaching Focus:** [The one thing]  
-   **Key Observations:** [2-3 sentences — what stood out in the session]  
-   **Evan's Self-Assessment vs. Data:** [Did they align? Where was the gap?]  
-   **How Evan Showed Up:** [receptive/defensive/energized/distracted — be specific]  
-   **Commitments Made:** [Verbatim]  
-   **SDT Note:** [One sentence on autonomy/competence/relatedness movement]  
-   ```
+**Example update:**
+```
+| 2026-04-14 | Send follow-ups to MSR and VassuTech by Friday | ✅ Done | "Got MSR out Thursday. VassuTech I called and they're in." |
+```
 
-5. **Add new coaching intelligence observations** if the session revealed patterns not in the profile (new verbal habit noticed, new meeting behavior, new deal pattern).
+### 8b. Add New Commitments
 
-## Step 9: Confirm Completion
+Extract every commitment Evan made during the session. Use his **exact words** — do not paraphrase.
 
-Output a summary to Jude:
+```
+| [Week start] | [Evan's exact words from transcript] | ⏳ Pending | — |
+```
+
+If Evan made no commitments, note it in the Session Log but don't add a row.
+
+### 8c. Update YAML Metrics Block
+
+Update `as_of` and `data_window`, then recalculate metrics using these rules:
+
+```yaml
+# --- CALCULATION RULES ---
+
+# WEIGHTED ROLLING AVERAGE (smooths week-to-week noise)
+talk_ratio_pct: (old_value × 0.7) + (this_week_value × 0.3)
+  # Only count meetings where Evan should be leading (Pitch, Discovery, Assessment)
+  # Exclude Technical Discovery meetings where Logan/James lead
+post_meeting_followup_hrs: (old_value × 0.7) + (this_week_avg × 0.3)
+  # From HubSpot: time between meeting end and first follow-up email
+pipeline_touches_per_week: this week's count from HubSpot (not averaged — snapshot)
+
+# CUMULATIVE LIFETIME (recalculate from totals)
+win_rate_pct: (total_deals_won / total_deals_closed) × 100
+  # Only recalculate when a deal closes this week
+total_deals_lifetime: increment if new deal(s) added
+active_deals: current count from HubSpot pipeline
+avg_days_to_win: recalculate only when a deal closes won
+avg_days_to_lose: recalculate only when a deal closes lost
+
+# CUMULATIVE ALL-TIME (add this week's numbers to running totals)
+linkedin_connections_sent: previous + this_week_sent
+linkedin_connection_accept_pct: recalculate from new totals
+linkedin_messages_sent: previous + this_week_sent
+linkedin_message_reply_pct: recalculate from new totals
+linkedin_inmails_sent: previous + this_week_sent
+linkedin_inmail_reply_pct: recalculate from new totals
+
+# REPLY RATE (recalculate when new data)
+personal_email_reply_rate_pct: (old_value × 0.7) + (this_week_rate × 0.3)
+```
+
+If a metric has no new data this week (e.g., no deals closed), leave it unchanged. Always update `as_of` and `data_window`.
+
+### 8d. SDT Progression Log — Log EVERY Session
+
+Add a row to the SDT Progression Log after every session. Do not skip — even "no movement" is data.
+
+**Assessment criteria:**
+
+| Need | Signal to Look For | Score |
+|------|-------------------|-------|
+| **Autonomy** | Did Evan self-diagnose before John shared data? Did he set his own commitments without prompting? Did he push back or offer his own read? | same / up / down |
+| **Competence** | Did Evan reference a skill he's been working on? Show improvement from last session? Demonstrate new capability? | same / up / down |
+| **Relatedness** | Did Evan connect his work to team impact, client outcomes, or the SRED.ca mission? | same / up / down |
+
+**Ladder positions (assess from transcript language):**
+
+| Ladder | Level | Language Signals |
+|--------|-------|-----------------|
+| **Motivation** | 2 (Ego/Should) | "I should...", "I need to...", "I have to..." |
+| **Motivation** | 3 (Goal/Want) | "I want to...", "I'm going to...", "My plan is..." |
+| **Motivation** | 4 (Value/Identity) | "This is how I work", "That's not my standard", "I believe..." |
+| **Decision** | 2 (Reports back) | Waits for John to assess, asks "what do you think?" |
+| **Decision** | 3 (Recommends) | "I think I should...", offers own analysis first |
+| **Decision** | 4 (Decides/Informs) | "Here's what I did...", already took action, tells John |
+
+**Also rate Grit/Grace balance:** 1 (all grace, no challenge) through 5 (all grit, no empathy). Target: 3.
+
+**Row format:**
+```
+| [Date] | [Autonomy: same/up/down] | [Competence: same/up/down] | [Relatedness: same/up/down] | [Motivation Level: X] | [Decision Rung: X] | [Notes: 1 sentence + Grit/Grace: X/5] |
+```
+
+### 8e. Update Personal Goals Progress
+
+Read `evan-personal-goals.md`. For each **active goal** (not blank templates):
+- Search the transcript for any mention of the goal topic
+- If discussed: add a row to that goal's Progress Log
+  ```
+  | [Date] | [Evan's exact update — his words] | [Coach observation — 1 sentence] |
+  ```
+- If not discussed: do nothing (don't log "not discussed")
+
+If no goals are set yet (first sessions before quarterly review), skip this step entirely.
+
+### 8f. Coaching Intelligence — Timestamped Observations
+
+When the session reveals a NEW pattern not already documented in the Coaching Intelligence section, add it with a date stamp:
+
+```markdown
+**[2026-04-21]** Talk ratio hit 18% in BWS pitch — first time above 15%.
+Possible driver: coaching focus on discovery questions (Sessions 2-3).
+```
+
+**Where to add:**
+- New verbal habit → under "Verbal habits to watch"
+- New discovery behavior → under "Discovery Patterns" (add row to table)
+- New deal pattern → under "Deal Behavior"
+- New communication style observation → under "Communication Style"
+
+Do NOT add observations that duplicate existing ones. Only add genuinely new findings.
+
+### 8g. Cross-Session Pattern Detection
+
+Read the last 3 Session Log entries. Compare this session's metrics to the trend:
+
+| Metric | How to Compare | Flag If |
+|--------|---------------|---------|
+| Talk ratio | This session vs. 3-session average | Moved >20% in either direction |
+| Follow-up speed | This week vs. 3-week average | Moved >20% |
+| Commitment completion | This session's resolved vs. total | Below 50% or above 80% |
+| Discovery questions | Count from this week's meetings vs. baseline | New high or new low |
+
+If a flag triggers, add to the Session Log entry:
+```
+**Pattern Alert:** Talk ratio increased 24% (from 8.2% avg to 10.1%). 
+Third consecutive session above baseline. Trend: improving.
+```
+
+### 8h. Quarterly Review Awareness
+
+Check if the current date is within 7 days of a quarterly review date:
+- **Q1 start:** May 1 (also fiscal year-end wrap)
+- **Q2 start:** August 1
+- **Q3 start:** November 1
+- **Q4 start:** February 1
+
+If within 7 days: add a flag to the completion summary:
+```
+⚠️ QUARTERLY REVIEW due [date]. Next session should include:
+  • Deep personal goals review (progress, obstacles, celebrate wins)
+  • New SMART goal setting for next quarter (Socratic method — Evan chooses)
+  • SDT arc assessment (where did Evan start the quarter vs. where is he now?)
+  • Generate quarterly review PDF (templates/quarterly-review-template.py)
+  • Update annual targets if needed
+```
+
+## Step 9: Update evan-personal-goals.md (if applicable)
+
+If Step 8e produced goal progress updates, write them to `evan-personal-goals.md` now.
+
+## Step 10: Confirm Completion (with Verification)
+
+Output a verified completion summary to Jude:
 
 ```
 ✅ Post-session processing complete — Week of [Monday] – [Sunday]
@@ -317,12 +445,18 @@ Reports generated:
 
 Gmail draft created: "Your Weekly Coaching Report — Week of [date]" (ready to send to Evan)
 
-evan-profile.md updated:
-  • Commitment added to tracker
-  • Session [N] logged
-  • [Any SDT or metric updates]
+Profile updates verified:
+  ✅ Prior commitments resolved: [N] updated ([X] done, [Y] in progress, [Z] missed)
+  ✅ New commitments added: [N] entries
+  ✅ YAML metrics updated: as_of = [date], changed: [list fields that changed]
+  ✅ SDT Progression Log: row added (Autonomy: [same/up/down], Decision Ladder: [rung], Grit/Grace: [X/5])
+  ✅ Session [N] appended to Session Log
+  ✅ Personal goals: [N updates logged / no active goals / not discussed]
+  ✅ Coaching intelligence: [N new observations / no new patterns]
+  [⚠️ Pattern alert: describe any >20% metric shifts]
+  [⚠️ Quarterly review due [date] — see flag above]
 
-VAPI system prompt: [updated / not updated — note if VAPI API call succeeded or needs manual update]
+Commitment track record (all time): [X]/[Y] kept ([Z]%)
 ```
 
 ## Error Handling
