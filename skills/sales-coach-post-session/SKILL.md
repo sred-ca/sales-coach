@@ -46,7 +46,7 @@ VAPI coaching calls record to VAPI's own servers — NOT Fireflies. Use the VAPI
 
 ### 1a. Pre-flight Checks
 
-**Check if reports already exist:** Look for `sales-coach/outputs/coaching-report-{week_start}.pdf` where `week_start` is this week's Monday date (YYYY-MM-DD). If that file exists, log "Reports already generated for week of [DATE]. Skipping." and exit.
+**Check if reports already exist:** Look for `sales-coach/sales-reports/coaching-report-{week_start}.pdf` where `week_start` is this week's Monday date (YYYY-MM-DD). If that file exists, log "Reports already generated for week of [DATE]. Skipping." and exit.
 
 **Build processed call registry:** Read all JSON files in `sales-coach/outputs/partials/`. Collect every `call_id` value — these are already-processed calls. Skip any call whose ID appears in this registry.
 
@@ -368,11 +368,11 @@ PAGE 5: SDT PROGRESSION NOTE
 # File naming convention — always use the Monday date of the reporting week
 week_start = "YYYY-MM-DD"  # prior Monday
 
-evan_report_path = f"sales-coach/outputs/coaching-report-{week_start}.pdf"
-manager_summary_path = f"sales-coach/outputs/manager-summary-{week_start}.pdf"
+evan_report_path = f"sales-coach/sales-reports/coaching-report-{week_start}.pdf"
+manager_summary_path = f"sales-coach/sales-reports/manager-summary-{week_start}.pdf"
 ```
 
-Save both files to `sales-coach/outputs/`.
+Save both files to `sales-coach/sales-reports/`.
 
 ## Step 7: Create Gmail Draft for Evan's Report
 
@@ -425,7 +425,7 @@ Body (HTML):
 
   <p>— Sales Coach System</p>
 
-Attach: sales-coach/outputs/manager-summary-{week_start}.pdf
+Attach: sales-coach/sales-reports/manager-summary-{week_start}.pdf
 ```
 
 Save the `messageId` from the response.
