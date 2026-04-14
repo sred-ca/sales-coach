@@ -170,9 +170,51 @@ The script:
 
 **Fallback:** If the API call fails, the assembled prompt is saved to `outputs/vapi-prompt-assembled-[YYYY-MM-DD].txt` for manual pasting via the VAPI dashboard.
 
-After the update, Evan can call +1 (571) 498-9194 anytime — the fresh brief is already loaded.
+After the update, proceed to schedule Evan's coaching call.
 
-## Step 7: Confirm and Log
+## Step 7: Schedule the Coaching Call (Google Calendar)
+
+Create a 1-hour Google Calendar event for Evan's coaching call. The scheduling rules:
+
+**Timing logic:**
+1. Note the current time (ET) when the VAPI prompt update completes
+2. Add 1 hour minimum buffer → this is the earliest Evan should call
+3. Round UP to the next full hour (meetings are always on the hour)
+4. The slot must fall within the **10:00 AM – 3:00 PM ET** window
+5. If the calculated time is before 10 AM → schedule at 10:00 AM
+6. If the calculated time is after 3:00 PM → schedule at 10:00 AM the next weekday
+
+**Examples:**
+- Prep finishes 6:15 AM → 6:15 + 1hr = 7:15 → rounds to 8:00 AM → before window → **10:00 AM**
+- Prep finishes 10:30 AM → 10:30 + 1hr = 11:30 → rounds to **12:00 PM**
+- Prep finishes 1:45 PM → 1:45 + 1hr = 2:45 → rounds to **3:00 PM**
+- Prep finishes 2:30 PM → 2:30 + 1hr = 3:30 → past window → **10:00 AM next weekday**
+
+**Create the event using `gcal_create_event`:**
+```
+Summary: "Sales Coaching Call with John"
+Description:
+  Everything is ready.
+
+  This week's data has been pulled from Fireflies, HubSpot, HeyReach,
+  and Gmail. Your Pre-Session Brief is loaded. John is waiting for you.
+
+  Call John: +1 (571) 498-9194
+
+  12-15 minutes. He'll start with a check-in, then get into the week —
+  wins, meeting reviews, pipeline health, and your one coaching focus.
+
+  — Sales Coach System
+
+Start: [calculated time] ET (1-hour block)
+End: [start + 1 hour]
+Attendees: evan@sred.ca, jude@sred.ca
+sendUpdates: "all"
+```
+
+Google Calendar sends the invitation email to Evan automatically.
+
+## Step 8: Confirm and Log
 
 Output a completion summary:
 
@@ -187,10 +229,9 @@ Data pulled:
 
 Pre-Session Brief: outputs/pre-session-brief-[DATE].txt ([size])
 VAPI system prompt: ✅ Updated via API ([size] chars)
+Coaching call: 📅 Scheduled [DAY] at [TIME] ET (event sent to Evan + Jude)
 
 Last week's commitments in brief: [yes / none — first session]
-
-Evan can call +1 (571) 498-9194 anytime — fresh brief is loaded.
 ```
 
 ## Reference Files
