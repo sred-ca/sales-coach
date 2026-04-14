@@ -108,6 +108,42 @@ If browser automation is unavailable, note the gap and proceed without LinkedIn 
 
 Gmail MCP only sees Jude's mailbox. For Evan's email activity, use HubSpot (step B above). However, check Gmail for any prospect replies that may have CC'd Jude or come to the main SRED.ca inbox.
 
+### E) VAPI — Prior Week's Coaching Session
+
+Pull the prior week's coaching call transcript from VAPI to feed the "Last Session Recap" into this week's brief. This gives John direct memory of what was discussed, not just what `evan-profile.md` summarizes.
+
+```bash
+# Calculate prior week's Monday and Sunday (the week BEFORE the data window)
+# If data window is Apr 7-13, prior coaching session was from Mar 31-Apr 6 window
+PRIOR_MONDAY=$(python3 -c "
+from datetime import datetime, timedelta
+today = datetime.now()
+data_monday = today - timedelta(days=today.weekday() + 7)
+prior_monday = data_monday - timedelta(days=7)
+print(prior_monday.strftime('%Y-%m-%dT00:00:00Z'))
+")
+PRIOR_SUNDAY=$(python3 -c "
+from datetime import datetime, timedelta
+today = datetime.now()
+data_monday = today - timedelta(days=today.weekday() + 7)
+prior_sunday = data_monday - timedelta(days=1)
+print(prior_sunday.strftime('%Y-%m-%dT23:59:59Z'))
+")
+
+curl -s "https://api.vapi.ai/call?assistantId=401905cf-f38f-4277-8bee-814916aaf2c0&createdAtGe=$PRIOR_MONDAY&createdAtLe=$PRIOR_SUNDAY" \
+  -H "Authorization: Bearer $VAPI_API_KEY"
+```
+
+For each call found:
+- Fetch full transcript: `GET https://api.vapi.ai/call/{id}`
+- Extract: what was discussed, coaching focus, Evan's commitments (from `artifact.transcript`), `analysis.summary`, `duration`
+
+If multiple calls found (stitched session), combine them chronologically.
+
+Also check for any **expired partials** from the prior week in `outputs/partials/` — if a session was never completed, note this in the brief so John can address it.
+
+Feed this into the Pre-Session Brief under a new **"Last Session Recap"** section (inserted after "Commitment Check", before "Wins").
+
 ## Step 3: Check Last Week's Commitments
 
 Read `evan-profile.md` → Commitment Tracker.
@@ -136,15 +172,16 @@ Combine all data into the Pre-Session Brief format. See `references/pre-session-
 **Required sections:**
 1. Week at a Glance (KPIs)
 2. Commitment Check (last week's commitments and evidence)
-3. Wins (2-4 specific things that went well)
-4. Meeting Reviews (1-3 most coachable meetings with transcript excerpts)
-5. Pipeline Health (stage snapshot, stalled deals flagged)
-6. Payment Gate Check (any deals at Assessment where Stripe LOE is unknown)
-7. Email Scorecard (personal emails, follow-up speed)
-8. LinkedIn Assessment (HeyReach data for the week)
-9. Patterns Observed (coach's pre-call read — what's the one thing?)
-10. Coaching Focus Recommendation (what John should coach on this session)
-11. SDT Notes (autonomy/competence/relatedness signals from the data)
+3. Last Session Recap (from VAPI — what John and Evan discussed, coaching focus, how Evan responded, any unfinished business from an interrupted session)
+4. Wins (2-4 specific things that went well)
+5. Meeting Reviews (1-3 most coachable meetings with transcript excerpts)
+6. Pipeline Health (stage snapshot, stalled deals flagged)
+7. Payment Gate Check (any deals at Assessment where Stripe LOE is unknown)
+8. Email Scorecard (personal emails, follow-up speed)
+9. LinkedIn Assessment (HeyReach data for the week)
+10. Patterns Observed (coach's pre-call read — what's the one thing?)
+11. Coaching Focus Recommendation (what John should coach on this session)
+12. SDT Notes (autonomy/competence/relatedness signals from the data)
 
 ## Step 5: Save the Brief
 
@@ -168,10 +205,17 @@ VAPI_API_KEY="$VAPI_API_KEY" python3 agents/update_vapi_prompt.py \
   --brief outputs/pre-session-brief-[YYYY-MM-DD].txt
 ```
 
+If there is an **active partial** from this week (a prior call was interrupted), include it:
+```bash
+VAPI_API_KEY="$VAPI_API_KEY" python3 agents/update_vapi_prompt.py \
+  --brief outputs/pre-session-brief-[YYYY-MM-DD].txt \
+  --partial outputs/partials/week-of-[YYYY-MM-DD]-partial.json
+```
+
 The script:
 1. Loads the static prompt template from `agents/vapi-coaching-agent-prompt.md`
-2. Reads the Pre-Session Brief and `evan-personal-goals.md`
-3. Replaces `{{PRE_SESSION_BRIEF}}` and `{{PERSONAL_GOALS}}` with the actual content
+2. Reads the Pre-Session Brief, `evan-personal-goals.md`, and `evan-profile.md`
+3. Replaces `{{PRE_SESSION_BRIEF}}`, `{{PERSONAL_GOALS}}`, `{{EVAN_PROFILE}}`, and `{{PREVIOUS_SESSION}}` with actual content
 4. PATCHes the VAPI assistant via API (uses `http.client` to bypass Cloudflare WAF)
 
 **Environment variable required:** `VAPI_API_KEY` must be set. The API key is stored securely — never commit it to git.

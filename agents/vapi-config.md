@@ -18,8 +18,8 @@
 - **Max tokens per turn:** 300 (keeps responses conversational, not lecture-length)
 
 ### Conversation Settings
-- **Max duration:** 15 minutes (hard cap at 20)
-- **Silence timeout:** 8 seconds (give Evan time to think — don't rush him)
+- **Max duration:** 90 minutes (5400 seconds) — updated 2026-04-14. Was 60 min, increased to give full coaching sessions room to breathe
+- **Silence timeout:** 45 seconds — updated 2026-04-14. Was 10 seconds, which caused both Session 1 calls to end prematurely (`silence-timed-out`). 45 seconds gives Evan time to think, check his CRM, or look something up without the call dropping
 - **Interruption sensitivity:** Medium (allow natural back-and-forth but don't let cross-talk dominate)
 - **End-of-turn detection:** Conservative (wait for Evan to finish — don't cut him off)
 - **First message:** "Hey Evan, it's John. How you doing?"
@@ -79,7 +79,7 @@ Monday ~10:20 AM — Post-session processing (automated or manual)
 3. ~~**Configure voice**~~ ✅ ElevenLabs Josh voice configured
 4. ~~**Set up phone number**~~ ✅ +1 (571) 498-9194 provisioned and assigned
 5. **Test with Jude first** — do a dry run to calibrate tone and pacing
-6. **Connect transcript capture** — VAPI provides call recordings and transcripts via webhook or API
+6. ~~**Connect transcript capture**~~ ✅ Resolved 2026-04-14: Post-session skill now polls VAPI REST API directly (`GET /call?assistantId=...`) instead of searching Fireflies. Supports partial session detection, multi-call stitching, and continuation prompting.
 7. **Wire up pre/post session** — The weekly prep task generates the brief; post-session processing uses the transcript
 
 ## Architecture Parallel: EO Forum Reflection
@@ -94,6 +94,6 @@ The EO Forum Reflection skill can be referenced for implementation patterns, esp
 ## Open Questions for Setup
 - [ ] Does Jude want the system to call Evan, or should Evan call in? (Phone: +1 571-498-9194)
 - [x] What phone number should be used? → +1 (571) 498-9194 (provisioned 2026-04-08)
-- [ ] Should the call be recorded for later reference? (Recommended yes, stored securely)
-- [ ] Should Jude receive the Manager Summary by email or just in the project folder?
+- [x] Should the call be recorded for later reference? → Yes, VAPI records all calls natively. Transcripts retrieved via `GET /call/{id}` → `artifact.transcript`. Recordings at `artifact.recording`.
+- [x] Should Jude receive the Manager Summary by email or just in the project folder? → Email only. Gmail draft created and sent via Chrome automation after each session. Subject: "Manager Summary Ready — Week of [date]".
 - [ ] Should there be a way for Evan to request an ad-hoc coaching session outside the weekly cadence?

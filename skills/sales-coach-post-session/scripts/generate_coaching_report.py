@@ -121,7 +121,7 @@ def generate_coaching_report(data: dict, output_path: str):
     doc.cover_page(
         "WEEKLY COACHING REPORT",
         f"Week of {date_range}",
-        "Prepared for Evan Batchelor"
+        "Evan Batchelor"
     )
 
     # ── Page 1: Week at a Glance ─────────────────────────────────────────────
@@ -172,7 +172,100 @@ def generate_coaching_report(data: dict, output_path: str):
     else:
         doc.body("Pipeline data unavailable.")
 
-    # ── Page 5: This Week's Focus ────────────────────────────────────────────
+    # ── Page 5: Email & Outreach Dashboard ─────────────────────────────────
+    email_dash = data.get("email_dashboard")
+    if email_dash:
+        doc.page_break()
+        doc.section_header("EMAIL & OUTREACH")
+        doc.kpi_row([
+            ("Emails Sent", email_dash.get("sent", "—")),
+            ("Open Rate", email_dash.get("open_rate", "—")),
+            ("Reply Rate", email_dash.get("reply_rate", "—")),
+            ("Avg Response", email_dash.get("avg_response", "—")),
+        ])
+        doc.spacer(0.2)
+        email_rows = email_dash.get("top_emails", [])
+        if email_rows:
+            doc.sub_header("Top Emails This Week")
+            doc.branded_table(
+                headers=["Recipient", "Subject", "Opened", "Replied"],
+                rows=email_rows,
+                col_widths=[1.8, 3.0, 1.1, 1.1]
+            )
+        doc.spacer(0.2)
+        linkedin = data.get("linkedin_dashboard")
+        if linkedin:
+            doc.sub_header("LinkedIn This Week")
+            li_rows = []
+            if linkedin.get("connections"):
+                li_rows.append(["Connections", linkedin["connections"]])
+            if linkedin.get("messages"):
+                li_rows.append(["Messages", linkedin["messages"]])
+            if linkedin.get("inmails"):
+                li_rows.append(["InMails", linkedin["inmails"]])
+            if linkedin.get("campaigns"):
+                li_rows.append(["Active Campaigns", linkedin["campaigns"]])
+            if li_rows:
+                doc.branded_table(
+                    headers=["Channel", "Stats"],
+                    rows=li_rows,
+                    col_widths=[2.0, 5.0]
+                )
+        forms = data.get("form_submissions")
+        if forms:
+            doc.spacer(0.2)
+            doc.sub_header("Form Submissions This Week")
+            if isinstance(forms, list) and forms:
+                doc.branded_table(
+                    headers=["Contact", "Company", "Source", "Date"],
+                    rows=forms,
+                    col_widths=[1.8, 2.2, 1.5, 1.5]
+                )
+            elif isinstance(forms, str):
+                doc.body(forms)
+
+    # ── Page 6: Hot Leads & Buying Signals ──────────────────────────────────
+    hot_leads = data.get("hot_leads")
+    if hot_leads:
+        doc.page_break()
+        doc.section_header("HOT LEADS & BUYING SIGNALS")
+        leads_table = hot_leads.get("leads_table", [])
+        if leads_table:
+            doc.branded_table(
+                headers=["Contact", "Company", "Signal", "Last Contact", "Action"],
+                rows=leads_table,
+                col_widths=[1.4, 1.6, 1.8, 1.2, 1.0]
+            )
+        doc.spacer(0.15)
+        alerts = hot_leads.get("alerts", [])
+        for alert in alerts:
+            doc.caution(alert)
+            doc.spacer(0.06)
+        if not leads_table and not alerts:
+            doc.body("No new buying signals detected this week.")
+
+    # ── Page 7: Web Traffic Snapshot ────────────────────────────────────────
+    web_traffic = data.get("web_traffic")
+    if web_traffic:
+        doc.page_break()
+        doc.section_header("WEB TRAFFIC SNAPSHOT")
+        doc.kpi_row([
+            ("Sessions", web_traffic.get("sessions", "—")),
+            ("Users", web_traffic.get("users", "—")),
+            ("Bounce Rate", web_traffic.get("bounce_rate", "—")),
+            ("Top Source", web_traffic.get("top_source", "—")),
+        ])
+        top_pages = web_traffic.get("top_pages", [])
+        if top_pages:
+            doc.spacer(0.2)
+            doc.sub_header("Top Landing Pages")
+            doc.branded_table(
+                headers=["Page", "Views", "Source"],
+                rows=top_pages,
+                col_widths=[3.5, 1.5, 2.0]
+            )
+
+    # ── This Week's Focus ───────────────────────────────────────────────────
     doc.page_break()
     doc.section_header("THIS WEEK'S FOCUS")
     focus_title = data.get("coaching_focus_title", "")

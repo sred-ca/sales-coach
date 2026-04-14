@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 SRED.ca Sales Coach — Manager Summary Generator
-Generates a confidential post-session PDF for Jude Cormier.
+Generates a confidential post-session PDF for Sales Manager.
 
 Usage:
     python generate_manager_summary.py --data manager_data.json --output /path/to/output.pdf
@@ -113,8 +113,8 @@ def generate_manager_summary(data: dict, output_path: str):
     # ── Cover ────────────────────────────────────────────────────────────────
     doc.cover_page(
         "MANAGER SUMMARY",
-        f"Week of {date_range}",
-        "CONFIDENTIAL \u2014 Jude Cormier"
+        f"Week of {date_range}\nCONFIDENTIAL",
+        "Sales Manager"
     )
 
     # ── Page 1: Week at a Glance ─────────────────────────────────────────────
@@ -170,7 +170,45 @@ def generate_manager_summary(data: dict, output_path: str):
             doc.caution(flag)
             doc.spacer(0.06)
 
-    # ── Page 4: Manager Insight ──────────────────────────────────────────────
+    # ── Page 4: Activity Dashboard ─────────────────────────────────────────
+    activity = data.get("activity_dashboard")
+    if activity:
+        doc.page_break()
+        doc.section_header("ACTIVITY DASHBOARD")
+        doc.kpi_row([
+            ("Emails Sent", activity.get("emails_sent", "—")),
+            ("Email Reply Rate", activity.get("email_reply_rate", "—")),
+            ("LinkedIn Messages", activity.get("linkedin_messages", "—")),
+            ("LinkedIn Reply Rate", activity.get("linkedin_reply_rate", "—")),
+        ])
+        doc.spacer(0.15)
+        summary_text = activity.get("summary")
+        if summary_text:
+            doc.body(summary_text)
+        alerts = activity.get("volume_alerts", [])
+        for alert in alerts:
+            doc.spacer(0.08)
+            doc.caution(alert)
+
+    # ── Page 5: Leads for Manager ───────────────────────────────────────────
+    leads_for_mgr = data.get("leads_for_manager")
+    if leads_for_mgr:
+        doc.page_break()
+        doc.section_header("LEADS REQUIRING MANAGER ATTENTION")
+        leads_table = leads_for_mgr.get("leads_table", [])
+        if leads_table:
+            doc.branded_table(
+                headers=["Contact", "Company", "Signal", "Recommended Action"],
+                rows=leads_table,
+                col_widths=[1.5, 1.8, 2.2, 1.5]
+            )
+        doc.spacer(0.15)
+        notes = leads_for_mgr.get("notes", [])
+        for note in notes:
+            doc.body(f"\u2022  {note}")
+            doc.spacer(0.06)
+
+    # ── Manager Insight ─────────────────────────────────────────────────────
     doc.page_break()
     doc.section_header("MANAGER INSIGHT")
     doc.body("What only a manager can act on:")

@@ -54,13 +54,50 @@ def load_template(project_root: str) -> str:
     return prompt
 
 
-def inject_variables(template: str, brief: str, goals: str, profile: str) -> str:
-    """Replace {{PRE_SESSION_BRIEF}}, {{PERSONAL_GOALS}}, and {{EVAN_PROFILE}} placeholders."""
+def load_partial_session(partial_path: str) -> str:
+    """Load a partial session JSON and format it for the VAPI prompt."""
+    with open(partial_path, "r") as f:
+        partial = json.load(f)
+
+    sections_done = partial.get("sections_completed", [])
+    sections_left = partial.get("sections_remaining", [])
+    summary = partial.get("summary_for_resume", "")
+    call_date = partial.get("call_date", "unknown")
+    duration = partial.get("duration_seconds", 0)
+
+    section_names = {
+        "opening": "Opening Check-In + Personal Goals",
+        "wins": "Wins Recognition",
+        "meeting_reviews": "Meeting Reviews",
+        "pipeline": "Pipeline & Activity Check",
+        "coaching_focus": "Coaching Focus",
+        "commitments": "Commitments & Close",
+    }
+
+    done_list = ", ".join(section_names.get(s, s) for s in sections_done)
+    remaining_list = ", ".join(section_names.get(s, s) for s in sections_left)
+
+    return (
+        f"PREVIOUS SESSION DATA — Evan's call on {call_date} "
+        f"({duration // 60} minutes) was interrupted.\n\n"
+        f"Sections completed: {done_list}\n"
+        f"Sections remaining: {remaining_list}\n\n"
+        f"Summary of what was covered:\n{summary}\n\n"
+        f"Pick up from: {section_names.get(sections_left[0], sections_left[0]) if sections_left else 'unknown'}"
+    )
+
+
+DEFAULT_PREVIOUS_SESSION = "No prior session this week — start fresh."
+
+
+def inject_variables(template: str, brief: str, goals: str, profile: str,
+                     previous_session: str = DEFAULT_PREVIOUS_SESSION) -> str:
+    """Replace {{PRE_SESSION_BRIEF}}, {{PERSONAL_GOALS}}, {{EVAN_PROFILE}}, and {{PREVIOUS_SESSION}} placeholders."""
     result = template.replace("{{PRE_SESSION_BRIEF}}", brief)
     result = result.replace("{{PERSONAL_GOALS}}", goals)
     result = result.replace("{{EVAN_PROFILE}}", profile)
-    # Verify no placeholders remain
-    for var in ["{{PRE_SESSION_BRIEF}}", "{{PERSONAL_GOALS}}", "{{EVAN_PROFILE}}"]:
+    result = result.replace("{{PREVIOUS_SESSION}}", previous_session)
+    for var in ["{{PRE_SESSION_BRIEF}}", "{{PERSONAL_GOALS}}", "{{EVAN_PROFILE}}", "{{PREVIOUS_SESSION}}"]:
         if var in result:
             raise ValueError(f"Failed to inject {var}")
     return result
@@ -101,6 +138,7 @@ def main():
     parser.add_argument("--brief", required=True, help="Path to pre-session brief .txt file")
     parser.add_argument("--goals", default=None, help="Path to personal goals .md file (default: evan-personal-goals.md)")
     parser.add_argument("--profile", default=None, help="Path to coaching profile .md file (default: evan-profile.md)")
+    parser.add_argument("--partial", default=None, help="Path to partial session JSON for continuation (default: no prior session)")
     parser.add_argument("--dry-run", action="store_true", help="Print assembled prompt without calling API")
     args = parser.parse_args()
 
@@ -134,8 +172,16 @@ def main():
         profile = f.read()
     print(f"Profile loaded: {len(profile)} chars ({profile_path})")
 
+    # Load partial session (if any)
+    previous_session = DEFAULT_PREVIOUS_SESSION
+    if args.partial:
+        previous_session = load_partial_session(args.partial)
+        print(f"Partial session loaded: {len(previous_session)} chars ({args.partial})")
+    else:
+        print("No partial session — fresh start")
+
     # Assemble
-    assembled = inject_variables(template, brief, goals, profile)
+    assembled = inject_variables(template, brief, goals, profile, previous_session)
     print(f"Assembled prompt: {len(assembled)} chars")
 
     if args.dry_run:

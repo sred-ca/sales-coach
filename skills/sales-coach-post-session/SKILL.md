@@ -15,11 +15,13 @@ description: >
 
 After each VAPI coaching call with Evan, this skill:
 
-1. Detects the completed call transcript from VAPI
-2. Pairs it with the week's pre-session brief and evan-profile.md
-3. Generates two branded PDF reports using the sred-doc-creator scripts
-4. Saves Evan's report, creates a Gmail draft, and updates evan-profile.md
-5. Updates the VAPI system prompt with the next week's profile snapshot
+1. Detects completed call transcript(s) from the VAPI API (not Fireflies)
+2. Handles interrupted calls — saves partial state, enables continuation on callback
+3. Stitches multi-call transcripts when a session spans more than one call
+4. Pairs the transcript with the week's pre-session brief and evan-profile.md
+5. Generates two branded PDF reports using the sred-doc-creator scripts
+6. Saves Evan's report, creates a Gmail draft, and updates evan-profile.md
+7. Emails Jude when the manager summary is ready
 
 ## File Locations
 
@@ -35,24 +37,159 @@ Read these files at the start of every post-session run:
 
 ## Step 1: Detect the VAPI Transcript
 
-Use the Fireflies MCP to find the coaching call. VAPI calls are recorded via Fireflies.
+VAPI coaching calls record to VAPI's own servers — NOT Fireflies. Use the VAPI REST API directly.
 
+**VAPI API Configuration:**
+- **Endpoint:** `https://api.vapi.ai/call`
+- **Auth:** `Authorization: Bearer $VAPI_API_KEY`
+- **Assistant ID:** `401905cf-f38f-4277-8bee-814916aaf2c0`
+
+### 1a. Pre-flight Checks
+
+**Check if reports already exist:** Look for `sales-coach/outputs/coaching-report-{week_start}.pdf` where `week_start` is this week's Monday date (YYYY-MM-DD). If that file exists, log "Reports already generated for week of [DATE]. Skipping." and exit.
+
+**Build processed call registry:** Read all JSON files in `sales-coach/outputs/partials/`. Collect every `call_id` value — these are already-processed calls. Skip any call whose ID appears in this registry.
+
+### 1b. Fetch Calls from VAPI
+
+```bash
+# Calculate 3-hour lookback window (for scheduled polling)
+SINCE=$(python3 -c "from datetime import datetime, timezone, timedelta; print((datetime.now(timezone.utc)-timedelta(hours=3)).strftime('%Y-%m-%dT%H:%M:%SZ'))")
+
+# Fetch recent calls for the Sales Coach assistant
+curl -s "https://api.vapi.ai/call?assistantId=401905cf-f38f-4277-8bee-814916aaf2c0&limit=10&createdAtGt=$SINCE" \
+  -H "Authorization: Bearer $VAPI_API_KEY"
 ```
-Search Fireflies for transcripts from this week (Monday 00:00 → Sunday 23:59 ET)
-where the meeting involves Evan Batchelor.
-Filter: look for calls on or after the Monday of the current week.
-The VAPI call will be 12-20 minutes long from phone number +1 (571) 498-9194.
+
+For each call returned:
+1. Check if `call_id` is in the processed registry → if yes, **skip**
+2. Check if `status` is `ended` → if not ended, skip (still in progress)
+3. Fetch the full call details: `GET https://api.vapi.ai/call/{call_id}`
+4. Extract: `artifact.transcript`, `artifact.recording`, `analysis.summary`, `duration`, `endedReason`, `messages`
+
+### 1c. Determine Session Completeness
+
+Map the VAPI transcript to the 6 coaching session sections:
+
+| Section Key | Section Name | Detection Signals |
+|-------------|-------------|-------------------|
+| `opening` | Opening: Check-In + Personal Goals | Agent's first message + personal goals mention or "how you doing/feeling" exchange |
+| `wins` | Wins Recognition | Discussion of "what worked", "wins", specific deal/call celebrations, "your read on the week" |
+| `meeting_reviews` | Meeting Reviews | Review of specific recorded meetings, talk ratio discussion, discovery quality, "how did you feel that call went" |
+| `pipeline` | Pipeline & Activity Check | Pipeline deals, stalled deals, follow-up scorecard, LinkedIn outreach, "deals past close date" |
+| `coaching_focus` | Coaching Focus | "One thing this week", specific behavior change identified, skill focus set |
+| `commitments` | Commitments & Close | Evan states commitments, measurable actions, "commit to", closing remarks like "Go get it done" |
+
+A section counts as **complete** when it has substantive back-and-forth (not just the coach mentioning the topic — Evan must engage). The agent's closing phrase ("Good talk. Go get it done." or similar) is a strong signal that the session reached natural completion.
+
+**Complete session:** All 6 sections have substantive content → proceed to Step 1e.
+**Incomplete session:** Some sections missing → proceed to Step 1d.
+
+### 1d. Handle Incomplete Session (Save Partial)
+
+If the call ended before all 6 sections were covered:
+
+**Check for existing partial:** Look for `sales-coach/outputs/partials/week-of-{week_start}-partial.json`. If one exists, this is a **continuation call** — proceed to Step 1e (multi-call stitching).
+
+**Save new partial:**
+```json
+{
+  "call_id": "vapi-call-uuid",
+  "call_date": "2026-04-14T10:30:00Z",
+  "duration_seconds": 1080,
+  "ended_reason": "customer-ended-call",
+  "sections_completed": ["opening", "wins", "meeting_reviews"],
+  "sections_remaining": ["pipeline", "coaching_focus", "commitments"],
+  "partial_section": null,
+  "extracted_data": {
+    "wins_discussed": ["Think CNC follow-up", "2 new pipeline deals"],
+    "meetings_reviewed": ["Think CNC — discovery quality discussed"],
+    "evan_energy": "engaged, receptive"
+  },
+  "transcript_messages": [],
+  "summary_for_resume": "Covered check-in (Evan feeling good), wins (Think CNC follow-up praised, 2 new deals acknowledged), and meeting review (Think CNC — discussed talk ratio and discovery depth, Evan was receptive). Was about to move into pipeline review.",
+  "pre_session_brief_path": "outputs/pre-session-brief-2026-04-14.txt",
+  "expires": "2026-04-19T23:59:59-04:00"
+}
 ```
 
-**Before searching:** Check if reports already exist for this week. Look for `sales-coach/outputs/coaching-report-{week_start}.pdf` where `week_start` is this week's Monday date (YYYY-MM-DD). If that file exists, log "Reports already generated for week of [DATE]. Skipping." and exit. Do not regenerate.
+Save to: `sales-coach/outputs/partials/week-of-{week_start}-partial.json`
 
-If no transcript is found, check the current day and time (ET) to decide the response:
+**Update VAPI prompt for continuation:** Run the prompt updater with the partial so the next call picks up where this one left off:
+```bash
+python3 agents/update_vapi_prompt.py \
+  --brief outputs/pre-session-brief-{week_start}.txt \
+  --partial outputs/partials/week-of-{week_start}-partial.json
+```
+
+**Notify Evan** via Google Calendar event:
+```
+Summary: "Continue Coaching Call — Call John Back"
+Description:
+  Hey Evan — we got cut short. No worries.
+
+  We covered: [list completed sections in plain language].
+  Still need to get through: [list remaining sections].
+
+  Call +1 (571) 498-9194 when you're free and we'll pick up
+  right where we left off.
+
+  — John
+Start: Tomorrow 10:00 AM ET (15-min event)
+Attendees: evan@sred.ca
+sendUpdates: "all"
+```
+
+**Notify Jude** via Gmail draft + Chrome send:
+```
+To: jude@sred.ca
+Subject: Coaching Call Incomplete — Week of [Monday, Month Day]
+Body:
+  Hey Jude,
+
+  Evan's coaching call got cut short today — we covered [X/6] sections
+  ([list completed sections]).
+
+  Still need: [list remaining sections].
+
+  I've sent Evan a calendar invite to call back. The system will
+  pick up where we left off automatically.
+
+  — Sales Coach System
+```
+
+Then exit. Do not generate reports from an incomplete session.
+
+### 1e. Multi-Call Stitching
+
+If a partial already exists for this week (`week-of-{week_start}-partial.json`) AND a new call comes in:
+
+1. Load the existing partial JSON
+2. Load the new call's full transcript from VAPI
+3. **Merge transcripts:** Append the new call's messages after the partial's messages (chronological order)
+4. **Update sections:** Re-evaluate completeness against all 6 sections using the combined transcript
+5. **Merge extracted data:** Combine `extracted_data` from both calls
+
+If now **complete** (all 6 sections covered across both calls):
+- Update the partial JSON with `"status": "completed"` and the second call's `call_id`
+- Clean up: delete `sales-coach/outputs/nudge-sent-{week_start}.txt` if it exists
+- Proceed to Step 2 using the stitched transcript as the source
+
+If **still incomplete:**
+- Update the partial JSON with merged data, new `sections_completed`/`sections_remaining`
+- Re-run the VAPI prompt update with the updated partial
+- Send another continuation notification to Evan
+- Exit without generating reports
+
+### 1f. Escalation Tiers (No Call Detected)
+
+If no new VAPI calls are found AND no partial exists for this week:
 
 **Monday, or Tuesday before 5pm ET, or Wednesday before 5pm ET:** Silent exit.
-Log "No VAPI transcript found for week of [DATE]. Will retry." and exit gracefully.
+Log "No VAPI call found for week of [DATE]. Will retry." and exit gracefully.
 
 **Tuesday 5pm ET (hour = 17):** Send a gentle nudge to Evan only.
-First check for marker file `sales-coach/outputs/nudge-sent-{week_start}.txt` — if it already contains "Tier 1 sent", skip the send. Otherwise, create a Google Calendar event using `gcal_create_event` with `sendUpdates: "all"` — Google sends the email notification automatically:
+First check for marker file `sales-coach/outputs/nudge-sent-{week_start}.txt` — if it already contains "Tier 1 sent", skip. Otherwise, create a Google Calendar event using `gcal_create_event`:
 ```
 Summary: "Coaching Call Reminder — Call John"
 Description:
@@ -72,39 +209,34 @@ After creating, append to `sales-coach/outputs/nudge-sent-{week_start}.txt`:
 ```
 Tier 1 sent: Tuesday [date] [time] — gcal event [event_id]
 ```
-Then exit. Do not generate reports.
+Then exit.
 
-**Wednesday 5pm ET (hour = 17):** Send an alert to both Jude and Evan.
-First check the marker file — if it already contains "Tier 2 sent", skip. Otherwise, create a Google Calendar event with both attendees:
+**Wednesday 5pm ET (hour = 17):** Alert both Jude and Evan.
+First check marker — if "Tier 2 sent" exists, skip. Otherwise:
 ```
 Summary: "Missing Coaching Call — Week of [Monday date]"
 Description:
-  Heads up — no coaching call transcript was detected this week.
+  Heads up — no coaching call was detected this week via VAPI.
 
-  Either the call hasn't happened yet, or Fireflies didn't capture it.
-  Please check and confirm.
-
-  Evan can call +1 (571) 498-9194 anytime.
+  Evan can call +1 (571) 498-9194 anytime before end of day Wednesday.
 
   — Sales Coach System
 Start: Today 5:30 PM ET (15-min event)
 Attendees: evan@sred.ca, jude@sred.ca
 sendUpdates: "all"
 ```
-After creating, append to `sales-coach/outputs/nudge-sent-{week_start}.txt`:
+Append marker and exit.
+
+**After Wednesday (Thursday–Sunday):** Polling window closed.
+If a partial exists but is incomplete, send a final email to Jude:
 ```
-Tier 2 sent: Wednesday [date] [time] — gcal event [event_id]
+To: jude@sred.ca
+Subject: Coaching Session Incomplete — Week of [date]
+Body: Evan started the call but didn't finish ([X/6] sections).
+  The partial data has been saved to evan-profile.md.
+  Next week's session will cover any missed ground.
 ```
-Then exit. Do not generate reports.
-
-**After Wednesday (Thursday–Sunday):** The polling window is closed. Exit silently.
-
-Do not generate reports without a transcript.
-
-If transcript found:
-- Note the call date, duration, and transcript ID
-- Pull the full transcript using `fireflies_get_transcript`
-- Clean up: delete `sales-coach/outputs/nudge-sent-{week_start}.txt` if it exists (no longer needed)
+Update `evan-profile.md` with whatever data was extracted from the partial, marked as `[partial session]`. Exit.
 
 ## Step 2: Load Context
 
@@ -267,11 +399,58 @@ Body:
 
 **This is a DRAFT only.** Do not send. Jude reviews and sends manually.
 
-## Step 8: Update evan-profile.md (The Learning Loop)
+## Step 8: Notify Jude — Manager Summary Ready
+
+Send Jude an email with the manager summary attached. Use Gmail draft + Chrome browser automation (same pattern as EO Forum system).
+
+### Step A: Create the draft
+
+Use `gmail_create_draft`:
+```
+To: jude@sred.ca
+Subject: Manager Summary Ready — Week of [Monday, Month Day]
+Body (HTML):
+  <p>Hey Jude,</p>
+
+  <p>Evan's coaching session is done. Here's the quick version:</p>
+
+  <ul>
+    <li><strong>Coaching focus:</strong> [one-line summary of this week's focus]</li>
+    <li><strong>Evan's commitment:</strong> "[Evan's verbatim commitment]"</li>
+    <li><strong>Session energy:</strong> [receptive/defensive/energized — one word]</li>
+    <li><strong>Flags:</strong> [any pipeline flags or concerns, or "None this week"]</li>
+  </ul>
+
+  <p>Full manager summary PDF is attached. Evan's report draft is ready to send.</p>
+
+  <p>— Sales Coach System</p>
+
+Attach: sales-coach/outputs/manager-summary-{week_start}.pdf
+```
+
+Save the `messageId` from the response.
+
+### Step B: Open the draft in Chrome
+
+Navigate to: `https://mail.google.com/mail/u/0/#drafts/{messageId}`
+Wait 2-3 seconds for the compose window to load.
+
+### Step C: Find and click Send
+
+Use the `find` tool: `query: "Send button in compose window to jude@sred.ca"`
+Click using the returned ref.
+
+### Step D: Confirm sent
+
+Take a screenshot and verify the "Message sent" toast appears.
+
+**If multi-call session:** Add a note to the email body: "Note: This session was completed across [N] calls — the first was interrupted after [duration], and Evan called back to finish."
+
+## Step 9: Update evan-profile.md (The Learning Loop)
 
 This is the most critical step. Every sub-step must execute — this is how John gets smarter each week. Read the current `evan-profile.md` before making any changes.
 
-### 8a. Resolve Prior Commitments
+### 9a. Resolve Prior Commitments
 
 Before adding new commitments, find ALL `⏳ Pending` entries in the Commitment Tracker. For each one, search the transcript for whether Evan addressed it.
 
@@ -287,7 +466,7 @@ If the transcript doesn't mention a prior commitment at all, mark it `❌ Missed
 | 2026-04-14 | Send follow-ups to MSR and VassuTech by Friday | ✅ Done | "Got MSR out Thursday. VassuTech I called and they're in." |
 ```
 
-### 8b. Add New Commitments
+### 9b. Add New Commitments
 
 Extract every commitment Evan made during the session. Use his **exact words** — do not paraphrase.
 
@@ -297,7 +476,7 @@ Extract every commitment Evan made during the session. Use his **exact words** �
 
 If Evan made no commitments, note it in the Session Log but don't add a row.
 
-### 8c. Update YAML Metrics Block
+### 9c. Update YAML Metrics Block
 
 Update `as_of` and `data_window`, then recalculate metrics using these rules:
 
@@ -334,7 +513,7 @@ personal_email_reply_rate_pct: (old_value × 0.7) + (this_week_rate × 0.3)
 
 If a metric has no new data this week (e.g., no deals closed), leave it unchanged. Always update `as_of` and `data_window`.
 
-### 8d. SDT Progression Log — Log EVERY Session
+### 9d. SDT Progression Log — Log EVERY Session
 
 Add a row to the SDT Progression Log after every session. Do not skip — even "no movement" is data.
 
@@ -364,7 +543,7 @@ Add a row to the SDT Progression Log after every session. Do not skip — even "
 | [Date] | [Autonomy: same/up/down] | [Competence: same/up/down] | [Relatedness: same/up/down] | [Motivation Level: X] | [Decision Rung: X] | [Notes: 1 sentence + Grit/Grace: X/5] |
 ```
 
-### 8e. Update Personal Goals Progress
+### 9e. Update Personal Goals Progress
 
 Read `evan-personal-goals.md`. For each **active goal** (not blank templates):
 - Search the transcript for any mention of the goal topic
@@ -376,7 +555,7 @@ Read `evan-personal-goals.md`. For each **active goal** (not blank templates):
 
 If no goals are set yet (first sessions before quarterly review), skip this step entirely.
 
-### 8f. Coaching Intelligence — Timestamped Observations
+### 9f. Coaching Intelligence — Timestamped Observations
 
 When the session reveals a NEW pattern not already documented in the Coaching Intelligence section, add it with a date stamp:
 
@@ -393,7 +572,7 @@ Possible driver: coaching focus on discovery questions (Sessions 2-3).
 
 Do NOT add observations that duplicate existing ones. Only add genuinely new findings.
 
-### 8g. Cross-Session Pattern Detection
+### 9g. Cross-Session Pattern Detection
 
 Read the last 3 Session Log entries. Compare this session's metrics to the trend:
 
@@ -410,7 +589,7 @@ If a flag triggers, add to the Session Log entry:
 Third consecutive session above baseline. Trend: improving.
 ```
 
-### 8h. Quarterly Review Awareness
+### 9h. Quarterly Review Awareness
 
 Check if the current date is within 7 days of a quarterly review date:
 - **Q1 start:** May 1 (also fiscal year-end wrap)
@@ -428,11 +607,11 @@ If within 7 days: add a flag to the completion summary:
   • Update annual targets if needed
 ```
 
-## Step 9: Update evan-personal-goals.md (if applicable)
+## Step 10: Update evan-personal-goals.md (if applicable)
 
-If Step 8e produced goal progress updates, write them to `evan-personal-goals.md` now.
+If Step 9e produced goal progress updates, write them to `evan-personal-goals.md` now.
 
-## Step 10: Confirm Completion (with Verification)
+## Step 11: Confirm Completion (with Verification)
 
 Output a verified completion summary to Jude:
 
