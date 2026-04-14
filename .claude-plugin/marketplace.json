@@ -1,0 +1,15 @@
+{
+  "name": "sred-sales-coach",
+  "owner": {
+    "name": "SRED.ca",
+    "email": "jude@sred.ca"
+  },
+  "plugins": [
+    {
+      "name": "sales-coach",
+      "source": ".",
+      "description": "AI-powered weekly sales coaching system. Pulls Fireflies/HubSpot/HeyReach/Gmail data, preps VAPI coaching calls with 'John', generates post-session reports, and tracks coaching progress via SDT framework.",
+      "version": "0.3.0"
+    }
+  ]
+}
