@@ -6,6 +6,6 @@
     "name": "SRED.ca",
     "email": "jude@sred.ca"
   },
-  "repository": "https://github.com/jude-bot/AISalesCoach",
+  "repository": "https://github.com/sred-ca/AISalesCoach",
   "keywords": ["sales-coaching", "sred", "vapi", "hubspot", "fireflies"]
 }
