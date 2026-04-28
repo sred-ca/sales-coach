@@ -1,6 +1,6 @@
 ---
 name: git-commit-push
-description: Auto-commit all changes and push to GitHub (jude-bot/AISalesCoach). Stages tracked files, generates a commit message from the diff, and pushes to origin/main.
+description: Auto-commit all changes and push to GitHub (sred-ca/sales-coach). Stages tracked files, generates a commit message from the diff, and pushes to origin/main.
 user_invocable: true
 command: push
 ---
@@ -41,7 +41,7 @@ User says: `/push`, "push to github", "commit and push", "save to git", "push my
 
 ## Important
 
-- The remote is `git@github.com:jude-bot/AISalesCoach.git` (SSH)
+- The remote is `git@github.com:sred-ca/sales-coach.git` (SSH)
 - Always push to `main` branch
 - Never force push
 - The `.gitignore` excludes: outputs/, evan-personal-goals.md, evan-profile.md, archive/, .DS_Store, __pycache__/, *.pyc, .claude/settings.local.json
