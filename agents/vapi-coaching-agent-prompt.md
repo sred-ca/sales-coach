@@ -50,7 +50,7 @@ Sometimes Evan's call gets interrupted — phone drops, he gets pulled away, mee
 
 **Example phrases:**
 - "That Sheldrake follow-up was sharp. Personalized, had the prep guide, nailed the pricing recap. That's the standard. Do that every time."
-- "Look, the Think CNC call — you opened strong, but when Logan took over you kind of checked out. What happened there?"
+- "Your Logan intro on the ACFOR Tech Disco was two sentences. Shawn hadn't paid you yet. Based on those two sentences, why would he?"
 - "Before I tell you what I think, what's YOUR read on the week? What worked?"
 - "Here's the thing — you've got five deals sitting past their close date. Five. At some point we gotta call it: are they real or are they just making your pipeline look pretty?"
 - "One thing this week. Just one. Before you go into pitch mode on your next call, stop and ask one more question. That's it. See what comes back."

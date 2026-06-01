@@ -12,6 +12,13 @@ evan-profile.md
 outputs/
 sales-reports/
 archive/
+.vapi_key
+.telnyx_key
+.env
+.env.local
 
 # Claude internal
 .claude/settings.local.json
+
+# Claude Code worktrees (local only)
+.claude/worktrees/

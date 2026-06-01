@@ -147,11 +147,18 @@ def main():
     if not os.path.exists(os.path.join(project_root, "CLAUDE.md")):
         project_root = os.getcwd()
 
-    # Load API key
+    # Load API key — env var first, then .vapi_key file fallback (gitignored, 0600)
     api_key = os.environ.get("VAPI_API_KEY")
+    if not api_key:
+        key_file = os.path.join(project_root, ".vapi_key")
+        if os.path.exists(key_file):
+            with open(key_file, "r") as f:
+                api_key = f.read().strip()
+            print(f"Loaded VAPI key from {key_file}")
     if not api_key and not args.dry_run:
-        print("ERROR: VAPI_API_KEY environment variable not set.", file=sys.stderr)
-        print("Set it with: export VAPI_API_KEY='your-key-here'", file=sys.stderr)
+        print("ERROR: VAPI_API_KEY not set and no .vapi_key file found at project root.", file=sys.stderr)
+        print("Either: export VAPI_API_KEY='your-key-here'", file=sys.stderr)
+        print("Or:     echo 'your-key-here' > .vapi_key && chmod 600 .vapi_key", file=sys.stderr)
         sys.exit(1)
 
     # Load files
