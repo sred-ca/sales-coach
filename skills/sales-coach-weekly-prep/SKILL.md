@@ -266,7 +266,34 @@ sendUpdates: "all"
 
 Google Calendar sends the invitation email to Evan automatically.
 
-## Step 8: Confirm and Log
+## Step 8: Commit the Week's Source Changes to Git (Automated)
+
+This step keeps the repo in sync with the live John assistant. The problem this prevents: the weekly prep pushes prompt and rubric edits into the *live* VAPI assistant (Step 6), but git only reflects them if they're committed. Without this step the live John silently drifts ahead of the repo — which is exactly how `agents/vapi-coaching-agent-prompt.md` and `references/stage-specific-evaluation.md` ended up live but uncommitted.
+
+**What gets committed:** only tracked source files — typically `agents/` (prompt edits), `references/` (rubric updates), and `CLAUDE.md` (project history). The new Pre-Session Brief and PDFs in `outputs/` are **intentionally gitignored** (they hold Evan's private metrics) and must stay out of git — do not force-add them.
+
+Invoke the project's commit-and-push skill, which stages tracked changes (`git add -A`, respecting `.gitignore`), generates a message from the diff, and pushes to `origin/main` with a `pull --rebase` fallback:
+
+```
+/push
+```
+
+If running headless where the skill isn't available, do the equivalent inline from the project root:
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+git add -A
+if git diff --cached --quiet; then
+  echo "Repo already in sync — nothing to commit."
+else
+  git commit -m "Weekly prep [Monday YYYY-MM-DD]: sync source with live VAPI prompt"
+  git push origin main || { git pull --rebase origin main && git push origin main; }
+fi
+```
+
+Sanity check: `.vapi_key` and `outputs/` are gitignored and must never appear in the staged set. If they do, stop — the `.gitignore` is broken. If the push fails on auth/network, note it in the summary below; the commit is saved locally and can be pushed later.
+
+## Step 9: Confirm and Log
 
 Output a completion summary:
 
@@ -282,6 +309,7 @@ Data pulled:
 Pre-Session Brief: outputs/pre-session-brief-[DATE].txt ([size])
 VAPI system prompt: ✅ Updated via API ([size] chars)
 Coaching call: 📅 Scheduled [DAY] at [TIME] ET (event sent to Evan + Jude)
+Repo sync: ✅ Committed & pushed [commit hash] / nothing to commit / ⚠️ push failed (committed locally)
 
 Last week's commitments in brief: [yes / none — first session]
 ```
